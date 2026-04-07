@@ -10,28 +10,20 @@
     <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
     <style>
-        /* Custom styles for smoother animations */
-        .fade-in {
-            animation: fadeIn 0.5s ease-in-out;
-        }
+        .fade-in { animation: fadeIn 0.5s ease-in-out; }
         @keyframes fadeIn {
             from { opacity: 0; transform: translateY(10px); }
             to { opacity: 1; transform: translateY(0); }
         }
-        
         .loader {
             border: 4px solid #f3f3f3;
             border-top: 4px solid #3b82f6;
             border-radius: 50%;
-            width: 40px;
-            height: 40px;
+            width: 40px; height: 40px;
             animation: spin 1s linear infinite;
             margin: 0 auto;
         }
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
 </head>
 <body class="bg-slate-50 text-slate-800 font-sans min-h-screen">
@@ -97,11 +89,6 @@
                               class="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"></textarea>
                 </div>
 
-                <!-- API Key Info Note -->
-                <div class="bg-blue-50 text-blue-800 p-3 rounded-lg text-xs">
-                    <p><strong>Note for GitHub Pages:</strong> To host this yourself, you must add your Gemini API key to the `apiKey` variable in the source code.</p>
-                </div>
-
                 <button type="submit" id="submitBtn" 
                         class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 rounded-lg transition-colors flex justify-center items-center gap-2">
                     <i data-lucide="sparkles" class="w-5 h-5"></i> Generate Itinerary
@@ -125,7 +112,9 @@
 
             <div id="errorState" class="hidden flex-1 flex flex-col items-center justify-center text-red-500 space-y-4 fade-in">
                 <i data-lucide="alert-triangle" class="w-12 h-12"></i>
-                <p id="errorMessage" class="font-medium text-center">Something went wrong. Please try again.</p>
+                <h3 class="font-bold text-xl">Error Generating Itinerary</h3>
+                <p id="errorMessage" class="font-medium text-center text-slate-700 max-w-md bg-red-50 p-4 rounded-lg border border-red-200"></p>
+                <p class="text-sm text-slate-500 text-center max-w-md">Make sure you have added your API Key to the code. If you are on GitHub pages, check the browser console for details.</p>
             </div>
 
             <div id="resultState" class="hidden fade-in space-y-8">
@@ -136,19 +125,14 @@
     </main>
 
     <script>
-        // Initialize Lucide icons
         lucide.createIcons();
 
-        // ----------------------------------------------------------------------
-        // CONFIGURATION
-        // ----------------------------------------------------------------------
-        // The API key is provided automatically in the current immersive canvas.
-        // If you download this file and host it on GitHub Pages, insert your 
-        // Google Gemini API Key between the quotes below.
+        // ======================================================================
+        // IMPORTANT: PUT YOUR API KEY HERE FOR GITHUB PAGES
+        // ======================================================================
         const apiKey = "AIzaSyAmxGOIDj62fEg2F5G22tucYorIfv_8fLU"; 
-        // ----------------------------------------------------------------------
+        // ======================================================================
 
-        // DOM Elements
         const form = document.getElementById('travelForm');
         const submitBtn = document.getElementById('submitBtn');
         const initialState = document.getElementById('initialState');
@@ -157,17 +141,20 @@
         const errorMessage = document.getElementById('errorMessage');
         const resultState = document.getElementById('resultState');
 
-        // Fetch with Exponential Backoff for stability
-        async function fetchWithRetry(url, options, retries = 5) {
-            const delays = [1000, 2000, 4000, 8000, 16000];
+        async function fetchWithRetry(url, options, retries = 3) {
             for (let i = 0; i < retries; i++) {
                 try {
                     const response = await fetch(url, options);
-                    if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
-                    return await response.json();
+                    const data = await response.json();
+                    
+                    if (!response.ok) {
+                        // Throw the specific error message from Google so we can read it
+                        throw new Error(data.error?.message || `HTTP Error: ${response.status}`);
+                    }
+                    return data;
                 } catch (error) {
                     if (i === retries - 1) throw error;
-                    await new Promise(resolve => setTimeout(resolve, delays[i]));
+                    await new Promise(resolve => setTimeout(resolve, 2000));
                 }
             }
         }
@@ -175,7 +162,12 @@
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
 
-            // Collect form data
+            // Check API Key immediately
+            if (!apiKey || apiKey.trim() === "") {
+                showError("API Key is missing! You must paste your Google Gemini API key into line 133 of the index.html file.");
+                return;
+            }
+
             const formData = {
                 destination: document.getElementById('destination').value,
                 startDate: document.getElementById('startDate').value,
@@ -186,39 +178,25 @@
                 hotelPrefs: document.getElementById('hotelPrefs').value
             };
 
-            // Calculate trip duration
             const start = new Date(formData.startDate);
             const end = new Date(formData.endDate);
             const days = Math.round((end - start) / (1000 * 60 * 60 * 24)) + 1;
 
-            if (days <= 0) {
-                showError("End date must be after the start date.");
+            if (days <= 0 || days > 14) {
+                showError("Please enter a valid date range (between 1 and 14 days).");
                 return;
             }
 
-            // Update UI
             showLoading();
 
-            // Construct Prompt
-            const prompt = `
-                Act as an expert travel planner. I am planning a trip to ${formData.destination} 
-                from ${formData.startDate} to ${formData.endDate} (${days} days) for ${formData.numPeople} people. 
-                The ages of the travelers are: ${formData.ages}. 
-                
-                Things we like to do: ${formData.interests}. 
-                Hotel preferences: ${formData.hotelPrefs}. 
-                
-                Please provide a highly detailed itinerary tailored to these specific preferences and ages.
-            `;
+            const prompt = `Act as an expert travel planner. I am planning a trip to ${formData.destination} from ${formData.startDate} to ${formData.endDate} (${days} days) for ${formData.numPeople} people. Ages: ${formData.ages}. Interests: ${formData.interests}. Hotel preferences: ${formData.hotelPrefs}. Provide a highly detailed itinerary.`;
 
-            // Define Expected JSON Schema for the AI
             const jsonSchema = {
                 type: "OBJECT",
                 properties: {
-                    tripTitle: { type: "STRING", description: "A catchy title for the trip" },
+                    tripTitle: { type: "STRING" },
                     hotelRecommendations: {
                         type: "ARRAY",
-                        description: "List of 3 hotel recommendations matching the user's preferences",
                         items: {
                             type: "OBJECT",
                             properties: {
@@ -229,12 +207,11 @@
                     },
                     itinerary: {
                         type: "ARRAY",
-                        description: `Day-by-day itinerary. Must contain exactly ${days} days.`,
                         items: {
                             type: "OBJECT",
                             properties: {
                                 dayNumber: { type: "NUMBER" },
-                                title: { type: "STRING", description: "Theme of the day" },
+                                title: { type: "STRING" },
                                 morning: { type: "STRING" },
                                 afternoon: { type: "STRING" },
                                 evening: { type: "STRING" },
@@ -244,20 +221,19 @@
                     },
                     travelTips: {
                         type: "ARRAY",
-                        description: "3-4 specific travel tips for this location and group demographics",
                         items: { type: "STRING" }
                     }
                 },
                 required: ["tripTitle", "hotelRecommendations", "itinerary", "travelTips"]
             };
 
-            // Prepare API Request
+            // Using the standard public gemini flash model for better GitHub Pages compatibility
             const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
             
             const payload = {
                 contents: [{ parts: [{ text: prompt }] }],
                 systemInstruction: { 
-                    parts: [{ text: "You are a world-class travel planner. Always return valid JSON matching the requested schema. Provide rich, realistic, and actionable advice." }] 
+                    parts: [{ text: "You are a world-class travel planner. Always return valid JSON matching the requested schema." }] 
                 },
                 generationConfig: {
                     responseMimeType: "application/json",
@@ -272,24 +248,19 @@
                     body: JSON.stringify(payload)
                 });
 
-                // Parse the response
+                if (!data.candidates || !data.candidates[0].content) {
+                    throw new Error("Received an empty response from the AI. Please try again.");
+                }
+
                 const responseText = data.candidates[0].content.parts[0].text;
                 const resultJSON = JSON.parse(responseText);
-
-                // Render Results
                 renderResults(resultJSON);
 
             } catch (err) {
-                console.error(err);
-                if (!apiKey) {
-                   showError("API Key is missing. Please add your Gemini API key to the script.");
-                } else {
-                   showError("Failed to generate itinerary. Please try again later.");
-                }
+                console.error("Full Error:", err);
+                showError(err.message || "An unknown error occurred while communicating with the AI.");
             }
         });
-
-        // --- UI Rendering Functions ---
 
         function showLoading() {
             submitBtn.disabled = true;
@@ -298,7 +269,6 @@
             errorState.classList.add('hidden');
             resultState.classList.add('hidden');
             loadingState.classList.remove('hidden');
-            resultState.innerHTML = '';
         }
 
         function showError(msg) {
@@ -314,19 +284,14 @@
             submitBtn.disabled = false;
             submitBtn.classList.remove('opacity-70');
 
-            // 1. Header
             let html = `
                 <div class="border-b border-slate-200 pb-4">
                     <h2 class="text-3xl font-extrabold text-slate-800">${data.tripTitle}</h2>
-                    <p class="text-slate-500 mt-2 flex items-center gap-2">
-                        <i data-lucide="check-circle" class="w-4 h-4 text-green-500"></i> AI Itinerary Successfully Generated
-                    </p>
                 </div>
             `;
 
-            // 2. Hotel Recommendations
             html += `
-                <div class="bg-blue-50 p-5 rounded-xl">
+                <div class="bg-blue-50 p-5 rounded-xl mt-4">
                     <h3 class="text-lg font-bold text-blue-900 mb-3 flex items-center gap-2">
                         <i data-lucide="bed" class="w-5 h-5"></i> Hotel Recommendations
                     </h3>
@@ -342,9 +307,8 @@
             });
             html += `</div></div>`;
 
-            // 3. Itinerary
             html += `
-                <div>
+                <div class="mt-8">
                     <h3 class="text-xl font-bold text-slate-800 mb-4 flex items-center gap-2">
                         <i data-lucide="calendar-days" class="w-5 h-5"></i> Daily Itinerary
                     </h3>
@@ -356,52 +320,34 @@
                     <div class="border-l-4 border-blue-500 pl-4 py-1 relative">
                         <div class="absolute -left-2.5 top-2 w-4 h-4 rounded-full bg-blue-500 ring-4 ring-white"></div>
                         <h4 class="text-lg font-bold text-slate-800">Day ${day.dayNumber}: ${day.title}</h4>
-                        
                         <div class="mt-3 grid gap-3 text-sm text-slate-700">
-                            <div class="bg-slate-50 p-3 rounded-md">
-                                <span class="font-bold text-slate-900 block mb-1">Morning</span>
-                                ${day.morning}
-                            </div>
-                            <div class="bg-slate-50 p-3 rounded-md">
-                                <span class="font-bold text-slate-900 block mb-1">Afternoon</span>
-                                ${day.afternoon}
-                            </div>
-                            <div class="bg-slate-50 p-3 rounded-md">
-                                <span class="font-bold text-slate-900 block mb-1">Evening</span>
-                                ${day.evening}
-                            </div>
-                            <div class="bg-orange-50 p-3 rounded-md border border-orange-100">
-                                <span class="font-bold text-orange-800 flex items-center gap-1 mb-1">
-                                    <i data-lucide="utensils" class="w-4 h-4"></i> Dining Suggestion
-                                </span>
-                                ${day.foodSuggestions}
-                            </div>
+                            <div class="bg-slate-50 p-3 rounded-md"><b>Morning:</b> ${day.morning}</div>
+                            <div class="bg-slate-50 p-3 rounded-md"><b>Afternoon:</b> ${day.afternoon}</div>
+                            <div class="bg-slate-50 p-3 rounded-md"><b>Evening:</b> ${day.evening}</div>
+                            <div class="bg-orange-50 p-3 rounded-md border border-orange-100"><b>Dining:</b> ${day.foodSuggestions}</div>
                         </div>
                     </div>
                 `;
             });
             html += `</div></div>`;
 
-            // 4. Travel Tips
             html += `
-                <div class="bg-slate-100 p-5 rounded-xl">
+                <div class="bg-slate-100 p-5 rounded-xl mt-8">
                     <h3 class="text-lg font-bold text-slate-800 mb-3 flex items-center gap-2">
                         <i data-lucide="info" class="w-5 h-5"></i> Quick Tips
                     </h3>
                     <ul class="list-disc list-inside text-sm text-slate-700 space-y-2">
             `;
-            data.travelTips.forEach(tip => {
-                html += `<li>${tip}</li>`;
-            });
+            data.travelTips.forEach(tip => { html += `<li>${tip}</li>`; });
             html += `</ul></div>`;
 
-            // Set HTML and show result
             resultState.innerHTML = html;
-            lucide.createIcons(); // Re-initialize icons for newly injected HTML
+            lucide.createIcons();
             resultState.classList.remove('hidden');
         }
     </script>
 </body>
 </html>
+
 
 ```
