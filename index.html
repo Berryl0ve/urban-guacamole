@@ -1,12 +1,15 @@
-```html
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AI Travel Planner</title>
+    <!-- Tailwind for styling -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide for icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- html2pdf for PDF generation -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <style>
         .fade-in { animation: fadeIn 0.5s ease-in-out; }
         @keyframes fadeIn {
@@ -28,106 +31,159 @@
 
     <!-- Header -->
     <header class="bg-blue-600 text-white shadow-md sticky top-0 z-10">
-        <div class="max-w-5xl mx-auto px-4 py-4 flex items-center gap-3">
-            <i data-lucide="plane-takeoff" class="w-8 h-8"></i>
-            <h1 class="text-2xl font-bold tracking-wide">WanderGenius AI</h1>
+        <div class="max-w-5xl mx-auto px-4 py-4 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <i data-lucide="plane-takeoff" class="w-8 h-8"></i>
+                <h1 class="text-2xl font-bold tracking-wide">WanderGenius AI</h1>
+            </div>
         </div>
     </header>
 
     <main class="max-w-5xl mx-auto px-4 py-8 flex flex-col md:flex-row gap-8">
         
         <!-- Input Form Section -->
-        <div class="w-full md:w-1/3 bg-white p-6 rounded-2xl shadow-sm border border-slate-100 h-fit">
-            <h2 class="text-xl font-bold mb-4 flex items-center gap-2">
-                <i data-lucide="map-pin" class="w-5 h-5 text-blue-500"></i> Trip Details
-            </h2>
+        <div class="w-full md:w-1/3 space-y-6">
             
-            <form id="travelForm" class="space-y-4">
+            <!-- API Key & Model Configuration Panel -->
+            <div class="bg-slate-800 p-5 rounded-2xl shadow-sm border border-slate-700 text-white">
+                <h2 class="text-lg font-bold mb-3 flex items-center gap-2">
+                    <i data-lucide="settings" class="w-5 h-5 text-blue-400"></i> API Settings
+                </h2>
+                <div class="space-y-3">
+                    <div>
+                        <label class="block text-xs font-medium text-slate-400 mb-1">Google Gemini API Key</label>
+                        <input type="password" id="uiApiKey" placeholder="Paste your API key here..." 
+                               class="w-full p-2 bg-slate-900 border border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm text-white">
+                        <p class="text-[10px] text-slate-400 mt-1">Key is saved securely in your browser.</p>
+                    </div>
+                    <button id="connectBtn" type="button" class="w-full bg-blue-500 hover:bg-blue-600 text-white text-sm font-bold py-2 rounded-lg transition-colors">
+                        Connect & Find Models
+                    </button>
+                    
+                    <div id="modelContainer" class="hidden mt-3 pt-3 border-t border-slate-600">
+                        <label class="block text-xs font-medium text-slate-400 mb-1">Your Available Models</label>
+                        <select id="aiModel" class="w-full p-2 bg-slate-900 border border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm text-white">
+                            <!-- Populated dynamically -->
+                        </select>
+                    </div>
+                    <div id="apiStatus" class="text-xs mt-2 hidden rounded p-2"></div>
+                </div>
+            </div>
+
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+                <h2 class="text-xl font-bold mb-4 flex items-center gap-2">
+                    <i data-lucide="map-pin" class="w-5 h-5 text-blue-500"></i> Trip Details
+                </h2>
                 
-                <!-- AI Model Selector added here -->
-                <div class="bg-slate-50 p-3 rounded-lg border border-slate-200 mb-4">
-                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Select AI Model</label>
-                    <select id="aiModel" class="w-full p-2 bg-white border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none">
-                        <option value="gemini-2.5-flash-preview-09-2025">Gemini 2.5 Flash Preview (Recommended)</option>
-                        <option value="gemini-1.5-flash-latest">Gemini 1.5 Flash Latest</option>
-                        <option value="gemini-1.5-pro-latest">Gemini 1.5 Pro</option>
-                    </select>
-                </div>
-
-                <div>
-                    <label class="block text-sm font-medium text-slate-700 mb-1">Destination</label>
-                    <input type="text" id="destination" required placeholder="e.g., Tokyo, Japan" 
-                           class="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all">
-                </div>
-
-                <div class="grid grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-sm font-medium text-slate-700 mb-1">Start Date</label>
-                        <input type="date" id="startDate" required 
-                               class="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all">
+                <form id="travelForm" class="space-y-4">
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">Departure City</label>
+                            <input type="text" id="departure" required placeholder="e.g., JFK, New York" 
+                                   class="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">Destination</label>
+                            <input type="text" id="destination" required placeholder="e.g., Tokyo" 
+                                   class="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
+                        </div>
                     </div>
-                    <div>
-                        <label class="block text-sm font-medium text-slate-700 mb-1">End Date</label>
-                        <input type="date" id="endDate" required 
-                               class="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all">
+
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">Flight Class</label>
+                            <select id="flightClass" class="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white">
+                                <option value="Economy">Economy</option>
+                                <option value="Premium Economy">Premium Economy</option>
+                                <option value="Business">Business</option>
+                                <option value="First Class">First Class</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">Pref. Airlines</label>
+                            <input type="text" id="prefAirlines" placeholder="e.g., Delta, ANA (Optional)" 
+                                   class="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
+                        </div>
                     </div>
-                </div>
 
-                <div class="grid grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-sm font-medium text-slate-700 mb-1">Travelers</label>
-                        <input type="number" id="numPeople" min="1" required placeholder="e.g., 2" 
-                               class="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all">
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">Start Date</label>
+                            <input type="date" id="startDate" required 
+                                   class="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">End Date</label>
+                            <input type="date" id="endDate" required 
+                                   class="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
+                        </div>
                     </div>
-                    <div>
-                        <label class="block text-sm font-medium text-slate-700 mb-1">Ages</label>
-                        <input type="text" id="ages" required placeholder="e.g., 25, 28" 
-                               class="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all">
+
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">Travelers</label>
+                            <input type="number" id="numPeople" min="1" required placeholder="e.g., 2" 
+                                   class="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">Ages</label>
+                            <input type="text" id="ages" required placeholder="e.g., 25, 28" 
+                                   class="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
+                        </div>
                     </div>
-                </div>
 
-                <div>
-                    <label class="block text-sm font-medium text-slate-700 mb-1">What do you like to do?</label>
-                    <textarea id="interests" required rows="3" placeholder="e.g., Hiking, visiting museums, trying local street food, nightlife" 
-                              class="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"></textarea>
-                </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">Interests</label>
+                        <textarea id="interests" required rows="2" placeholder="e.g., Hiking, food, museums" 
+                                  class="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"></textarea>
+                    </div>
 
-                <div>
-                    <label class="block text-sm font-medium text-slate-700 mb-1">Hotel Preferences</label>
-                    <textarea id="hotelPrefs" required rows="2" placeholder="e.g., Free breakfast, close to city center, highly rated, pool" 
-                              class="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"></textarea>
-                </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">Hotel Prefs</label>
+                        <textarea id="hotelPrefs" required rows="2" placeholder="e.g., Free breakfast, central" 
+                                  class="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"></textarea>
+                    </div>
 
-                <button type="submit" id="submitBtn" 
-                        class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 rounded-lg transition-colors flex justify-center items-center gap-2">
-                    <i data-lucide="sparkles" class="w-5 h-5"></i> Generate Itinerary
-                </button>
-            </form>
+                    <button type="submit" id="submitBtn" disabled
+                            class="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-medium py-3 rounded-lg transition-colors flex justify-center items-center gap-2">
+                        <i data-lucide="sparkles" class="w-5 h-5"></i> Generate Itinerary
+                    </button>
+                    <p id="submitWarning" class="text-xs text-red-500 text-center">Connect your API key first.</p>
+                </form>
+            </div>
         </div>
 
         <!-- Output / Results Section -->
-        <div class="w-full md:w-2/3 bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-100 min-h-[500px] flex flex-col">
+        <div class="w-full md:w-2/3 bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-100 min-h-[500px] flex flex-col relative">
             
             <div id="initialState" class="flex-1 flex flex-col items-center justify-center text-slate-400 text-center space-y-4 fade-in">
                 <i data-lucide="map" class="w-16 h-16 opacity-50"></i>
-                <p class="text-lg">Fill out your details and let AI plan your perfect trip.</p>
+                <p class="text-lg">Paste your API key, connect, and let AI plan your trip.</p>
             </div>
 
             <div id="loadingState" class="hidden flex-1 flex flex-col items-center justify-center text-slate-600 space-y-4">
                 <div class="loader"></div>
-                <p class="font-medium animate-pulse">Our AI travel agent is crafting your itinerary...</p>
-                <p class="text-sm text-slate-400">Finding the best hotels and planning activities.</p>
+                <p class="font-medium animate-pulse">Communicating with Google AI...</p>
+                <p class="text-sm text-slate-400">Pricing flights, finding hotels, and planning activities...</p>
             </div>
 
             <div id="errorState" class="hidden flex-1 flex flex-col items-center justify-center text-red-500 space-y-4 fade-in">
                 <i data-lucide="alert-triangle" class="w-12 h-12"></i>
-                <h3 class="font-bold text-xl text-red-700">Error Generating Itinerary</h3>
+                <h3 class="font-bold text-xl text-red-700">Error</h3>
                 <p id="errorMessage" class="font-medium text-center text-red-800 text-sm max-w-md bg-red-50 p-4 rounded-lg border border-red-200 break-words"></p>
-                <p class="text-sm text-slate-500 text-center max-w-md">If the model isn't supported, <b>try selecting a different model from the dropdown on the left!</b></p>
             </div>
 
-            <div id="resultState" class="hidden fade-in space-y-8">
-                <!-- Results will be injected here via JS -->
+            <!-- Result Wrapper -->
+            <div id="resultState" class="hidden fade-in space-y-6">
+                <!-- Content to be printed to PDF -->
+                <div id="printableArea" class="space-y-6 pb-6 bg-white">
+                    <!-- Injected via JS -->
+                </div>
+                
+                <!-- Download Button (Excluded from PDF automatically by placing it outside printableArea) -->
+                <button onclick="downloadPDF()" class="w-full bg-slate-800 hover:bg-slate-900 text-white font-bold py-4 rounded-xl flex justify-center items-center gap-2 transition-colors shadow-md mt-8">
+                    <i data-lucide="file-down" class="w-6 h-6"></i> Download Itinerary as PDF
+                </button>
             </div>
 
         </div>
@@ -136,155 +192,176 @@
     <script>
         lucide.createIcons();
 
-        // ======================================================================
-        // IMPORTANT: PUT YOUR API KEY HERE FOR GITHUB PAGES
-        // ======================================================================
-        const apiKey = "AIzaSyAmxGOIDj62fEg2F5G22tucYorIfv_8fLU"; 
-        // ======================================================================
-
+        // DOM Elements
+        const uiApiKeyInput = document.getElementById('uiApiKey');
+        const connectBtn = document.getElementById('connectBtn');
+        const modelContainer = document.getElementById('modelContainer');
+        const aiModelSelect = document.getElementById('aiModel');
+        const apiStatus = document.getElementById('apiStatus');
+        
         const form = document.getElementById('travelForm');
         const submitBtn = document.getElementById('submitBtn');
+        const submitWarning = document.getElementById('submitWarning');
+        
         const initialState = document.getElementById('initialState');
         const loadingState = document.getElementById('loadingState');
         const errorState = document.getElementById('errorState');
         const errorMessage = document.getElementById('errorMessage');
         const resultState = document.getElementById('resultState');
+        const printableArea = document.getElementById('printableArea');
 
-        // Exponential backoff retry logic for stability
-        async function fetchWithRetry(url, options, retries = 5) {
-            const delays = [1000, 2000, 4000, 8000, 16000];
-            for (let i = 0; i < retries; i++) {
-                try {
-                    const response = await fetch(url, options);
-                    const data = await response.json();
-                    
-                    if (!response.ok) {
-                        throw new Error(data.error?.message || `HTTP Error: ${response.status}`);
-                    }
-                    return data;
-                } catch (error) {
-                    if (i === retries - 1) throw error;
-                    await new Promise(resolve => setTimeout(resolve, delays[i]));
-                }
-            }
-        }
+        // Load saved API key
+        const savedKey = localStorage.getItem('wanderGeniusApiKey');
+        if (savedKey) { uiApiKeyInput.value = savedKey; }
 
-        form.addEventListener('submit', async (e) => {
-            e.preventDefault();
-
-            // 1. Check API Key immediately
-            if (!apiKey || apiKey.trim() === "") {
-                showError("Missing API Key! You need to edit index.html on GitHub and put your key inside the quotes on line 144.");
+        // STEP 1: Connect
+        connectBtn.addEventListener('click', async () => {
+            const key = uiApiKeyInput.value.trim();
+            if (!key) {
+                showApiStatus("Please enter an API key.", "error");
                 return;
             }
+            connectBtn.textContent = "Connecting...";
+            connectBtn.disabled = true;
 
-            const formData = {
-                selectedModel: document.getElementById('aiModel').value,
-                destination: document.getElementById('destination').value,
-                startDate: document.getElementById('startDate').value,
-                endDate: document.getElementById('endDate').value,
-                numPeople: document.getElementById('numPeople').value,
-                ages: document.getElementById('ages').value,
-                interests: document.getElementById('interests').value,
-                hotelPrefs: document.getElementById('hotelPrefs').value
-            };
+            try {
+                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${key}`);
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.error?.message || "Failed to authenticate key.");
 
-            const start = new Date(formData.startDate);
-            const end = new Date(formData.endDate);
+                const validModels = data.models.filter(m => m.name.includes('gemini') && m.supportedGenerationMethods.includes('generateContent'));
+                if (validModels.length === 0) throw new Error("No Gemini models available for this key.");
+
+                aiModelSelect.innerHTML = '';
+                validModels.forEach(model => {
+                    const option = document.createElement('option');
+                    const modelName = model.name.replace('models/', '');
+                    option.value = modelName;
+                    option.textContent = modelName;
+                    if(modelName === 'gemini-1.5-flash-latest' || modelName === 'gemini-2.5-flash') option.selected = true;
+                    aiModelSelect.appendChild(option);
+                });
+
+                localStorage.setItem('wanderGeniusApiKey', key);
+                modelContainer.classList.remove('hidden');
+                submitBtn.disabled = false;
+                submitWarning.classList.add('hidden');
+                showApiStatus("Connected! Models loaded.", "success");
+            } catch (err) {
+                showApiStatus(err.message, "error");
+                modelContainer.classList.add('hidden');
+                submitBtn.disabled = true;
+                submitWarning.classList.remove('hidden');
+            } finally {
+                connectBtn.textContent = "Connect & Find Models";
+                connectBtn.disabled = false;
+            }
+        });
+
+        function showApiStatus(msg, type) {
+            apiStatus.textContent = msg;
+            apiStatus.classList.remove('hidden', 'bg-red-500/20', 'text-red-400', 'bg-green-500/20', 'text-green-400');
+            if (type === 'error') apiStatus.classList.add('bg-red-500/20', 'text-red-400');
+            else apiStatus.classList.add('bg-green-500/20', 'text-green-400');
+        }
+
+        // STEP 2: Generate
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const key = uiApiKeyInput.value.trim();
+            const selectedModel = aiModelSelect.value;
+            if (!key || !selectedModel) return;
+
+            const start = new Date(document.getElementById('startDate').value);
+            const end = new Date(document.getElementById('endDate').value);
             const days = Math.round((end - start) / (1000 * 60 * 60 * 24)) + 1;
 
             if (days <= 0 || days > 14) {
-                showError("Please enter a valid date range (between 1 and 14 days max for the AI).");
+                showAppError("Please enter a valid date range (1 to 14 days).");
                 return;
             }
 
             showLoading();
 
-            const prompt = `Act as an expert travel planner. I am planning a trip to ${formData.destination} from ${formData.startDate} to ${formData.endDate} (${days} days) for ${formData.numPeople} people. Ages: ${formData.ages}. Interests: ${formData.interests}. Hotel preferences: ${formData.hotelPrefs}. Provide a highly detailed itinerary.`;
+            const departure = document.getElementById('departure').value;
+            const destination = document.getElementById('destination').value;
+            const flightClass = document.getElementById('flightClass').value;
+            const prefAirlines = document.getElementById('prefAirlines').value || "Any";
+            const numPeople = document.getElementById('numPeople').value;
+            const ages = document.getElementById('ages').value;
+            const interests = document.getElementById('interests').value;
+            const hotelPrefs = document.getElementById('hotelPrefs').value;
 
-            const jsonSchema = {
-                type: "OBJECT",
-                properties: {
-                    tripTitle: { type: "STRING" },
-                    hotelRecommendations: {
-                        type: "ARRAY",
-                        items: {
-                            type: "OBJECT",
-                            properties: {
-                                name: { type: "STRING" },
-                                whyItFits: { type: "STRING" }
-                            }
-                        }
-                    },
-                    itinerary: {
-                        type: "ARRAY",
-                        items: {
-                            type: "OBJECT",
-                            properties: {
-                                dayNumber: { type: "NUMBER" },
-                                title: { type: "STRING" },
-                                morning: { type: "STRING" },
-                                afternoon: { type: "STRING" },
-                                evening: { type: "STRING" },
-                                foodSuggestions: { type: "STRING" }
-                            }
-                        }
-                    },
-                    travelTips: {
-                        type: "ARRAY",
-                        items: { type: "STRING" }
-                    }
+            // Updated prompt requesting pricing based on class and airlines
+            const prompt = `Act as an expert travel planner. Create a ${days}-day itinerary for ${numPeople} people traveling from ${departure} to ${destination}. 
+            Ages: ${ages}. Interests: ${interests}. Hotel preferences: ${hotelPrefs}.
+            Flight preferences: ${flightClass} class. Preferred Airlines: ${prefAirlines}.
+            
+            You MUST return ONLY a valid JSON object with the exact following structure. Estimate realistic prices in USD. Do not include markdown blocks, just raw JSON:
+            {
+                "tripTitle": "String - Catchy title",
+                "estimatedTotalBudget": "String - e.g., $4000 - $5500 total",
+                "flightAdvice": {
+                    "estimatedDuration": "String - e.g., 12 hours with 1 layover",
+                    "typicalAirlines": "String - Based on their preference if possible",
+                    "estimatedCostPerPerson": "String - e.g., $800 based on their chosen class",
+                    "generalAdvice": "String - Booking advice"
                 },
-                required: ["tripTitle", "hotelRecommendations", "itinerary", "travelTips"]
-            };
+                "hotelRecommendations": [
+                    { "name": "Hotel Name", "whyItFits": "Reason", "estimatedCostPerNight": "String - e.g., $200/night" }
+                ],
+                "itinerary": [
+                    {
+                        "dayNumber": 1,
+                        "title": "Theme of day",
+                        "morning": "Activity details",
+                        "afternoon": "Activity details",
+                        "evening": "Activity details",
+                        "foodSuggestions": "Where to eat"
+                    }
+                ],
+                "travelTips": ["Tip 1", "Tip 2"]
+            }`;
 
-            // Dynamically inject the model chosen from the dropdown menu!
-            const url = `https://generativelanguage.googleapis.com/v1beta/models/${formData.selectedModel}:generateContent?key=${apiKey}`;
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/${selectedModel}:generateContent?key=${key}`;
             
             const payload = {
                 contents: [{ parts: [{ text: prompt }] }],
-                systemInstruction: { 
-                    parts: [{ text: "You are a world-class travel planner. Always return valid JSON matching the requested schema." }] 
-                },
-                generationConfig: {
-                    responseMimeType: "application/json",
-                    responseSchema: jsonSchema
-                }
+                generationConfig: { responseMimeType: "application/json" }
             };
 
             try {
-                const data = await fetchWithRetry(url, {
+                const response = await fetch(url, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
                 });
+                const data = await response.json();
 
-                if (!data.candidates || !data.candidates[0].content) {
-                    throw new Error("Received an empty response from the AI. Please try again.");
-                }
+                if (!response.ok) throw new Error(data.error?.message || `API Error: ${response.status}`);
+                if (!data.candidates || !data.candidates[0].content) throw new Error("Received an empty response from the AI.");
 
-                const responseText = data.candidates[0].content.parts[0].text;
+                let responseText = data.candidates[0].content.parts[0].text;
+                responseText = responseText.replace(/```json/g, '').replace(/```/g, '').trim();
+                
                 const resultJSON = JSON.parse(responseText);
                 renderResults(resultJSON);
-
             } catch (err) {
-                console.error("Full Error:", err);
-                showError(`Google API Error: ${err.message}. Try selecting a different model from the dropdown!`);
+                console.error(err);
+                showAppError(err.message || "An unknown error occurred. Model might have failed to format JSON.");
             }
         });
 
         function showLoading() {
             submitBtn.disabled = true;
-            submitBtn.classList.add('opacity-70');
             initialState.classList.add('hidden');
             errorState.classList.add('hidden');
             resultState.classList.add('hidden');
             loadingState.classList.remove('hidden');
         }
 
-        function showError(msg) {
+        function showAppError(msg) {
             submitBtn.disabled = false;
-            submitBtn.classList.remove('opacity-70');
             loadingState.classList.add('hidden');
             errorMessage.textContent = msg;
             errorState.classList.remove('hidden');
@@ -293,39 +370,67 @@
         function renderResults(data) {
             loadingState.classList.add('hidden');
             submitBtn.disabled = false;
-            submitBtn.classList.remove('opacity-70');
 
+            // Generate HTML specifically inside printableArea
             let html = `
-                <div class="border-b border-slate-200 pb-4">
-                    <h2 class="text-3xl font-extrabold text-slate-800">${data.tripTitle}</h2>
-                </div>
-            `;
+                <div class="border-b border-slate-200 pb-4 mb-4">
+                    <h2 class="text-4xl font-extrabold text-slate-800">${data.tripTitle}</h2>
+                    <p class="text-slate-600 font-bold mt-2 text-lg">Total Trip Estimate: <span class="text-green-600">${data.estimatedTotalBudget || 'N/A'}</span></p>
+                </div>`;
 
+            // Flight Information
+            if (data.flightAdvice) {
+                html += `
+                <div class="bg-indigo-50 p-5 rounded-xl mb-6">
+                    <h3 class="text-lg font-bold text-indigo-900 mb-3 flex items-center gap-2">
+                        <i data-lucide="plane" class="w-5 h-5"></i> Flight Details
+                    </h3>
+                    <div class="bg-white p-4 rounded-lg shadow-sm border border-indigo-100 space-y-2">
+                        <div class="flex justify-between items-center border-b border-slate-100 pb-2">
+                            <span class="text-slate-600">Airlines</span>
+                            <span class="font-bold text-slate-800">${data.flightAdvice.typicalAirlines}</span>
+                        </div>
+                        <div class="flex justify-between items-center border-b border-slate-100 py-2">
+                            <span class="text-slate-600">Est. Duration</span>
+                            <span class="font-bold text-slate-800">${data.flightAdvice.estimatedDuration}</span>
+                        </div>
+                        <div class="flex justify-between items-center border-b border-slate-100 py-2">
+                            <span class="text-slate-600">Est. Cost (Per Person)</span>
+                            <span class="font-bold text-green-600">${data.flightAdvice.estimatedCostPerPerson || 'N/A'}</span>
+                        </div>
+                        <p class="text-sm text-slate-700 pt-2"><b class="text-slate-900">Advice:</b> ${data.flightAdvice.generalAdvice}</p>
+                    </div>
+                </div>`;
+            }
+
+            // Hotels
             html += `
-                <div class="bg-blue-50 p-5 rounded-xl mt-4">
+                <div class="bg-blue-50 p-5 rounded-xl mb-6">
                     <h3 class="text-lg font-bold text-blue-900 mb-3 flex items-center gap-2">
                         <i data-lucide="bed" class="w-5 h-5"></i> Hotel Recommendations
                     </h3>
-                    <div class="space-y-3">
-            `;
+                    <div class="space-y-3">`;
             data.hotelRecommendations.forEach(hotel => {
                 html += `
-                    <div class="bg-white p-3 rounded-lg shadow-sm border border-blue-100">
-                        <p class="font-bold text-slate-800">${hotel.name}</p>
-                        <p class="text-sm text-slate-600 mt-1">${hotel.whyItFits}</p>
-                    </div>
-                `;
+                    <div class="bg-white p-4 rounded-lg shadow-sm border border-blue-100 flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2">
+                        <div>
+                            <p class="font-bold text-slate-800 text-lg">${hotel.name}</p>
+                            <p class="text-sm text-slate-600 mt-1">${hotel.whyItFits}</p>
+                        </div>
+                        <div class="bg-green-50 text-green-700 font-bold px-3 py-1 rounded-md whitespace-nowrap border border-green-200">
+                            ${hotel.estimatedCostPerNight || 'N/A'}
+                        </div>
+                    </div>`;
             });
             html += `</div></div>`;
 
+            // Itinerary
             html += `
-                <div class="mt-8">
+                <div class="mb-6">
                     <h3 class="text-xl font-bold text-slate-800 mb-4 flex items-center gap-2">
                         <i data-lucide="calendar-days" class="w-5 h-5"></i> Daily Itinerary
                     </h3>
-                    <div class="space-y-6">
-            `;
-            
+                    <div class="space-y-6">`;
             data.itinerary.forEach(day => {
                 html += `
                     <div class="border-l-4 border-blue-500 pl-4 py-1 relative">
@@ -337,24 +442,39 @@
                             <div class="bg-slate-50 p-3 rounded-md"><b>Evening:</b> ${day.evening}</div>
                             <div class="bg-orange-50 p-3 rounded-md border border-orange-100"><b>Dining:</b> ${day.foodSuggestions}</div>
                         </div>
-                    </div>
-                `;
+                    </div>`;
             });
             html += `</div></div>`;
 
+            // Tips
             html += `
-                <div class="bg-slate-100 p-5 rounded-xl mt-8">
+                <div class="bg-slate-100 p-5 rounded-xl">
                     <h3 class="text-lg font-bold text-slate-800 mb-3 flex items-center gap-2">
                         <i data-lucide="info" class="w-5 h-5"></i> Quick Tips
                     </h3>
-                    <ul class="list-disc list-inside text-sm text-slate-700 space-y-2">
-            `;
+                    <ul class="list-disc list-inside text-sm text-slate-700 space-y-2">`;
             data.travelTips.forEach(tip => { html += `<li>${tip}</li>`; });
             html += `</ul></div>`;
 
-            resultState.innerHTML = html;
+            printableArea.innerHTML = html;
             lucide.createIcons();
             resultState.classList.remove('hidden');
+        }
+
+        // STEP 3: Generate PDF Function
+        window.downloadPDF = function() {
+            const element = document.getElementById('printableArea');
+            
+            const opt = {
+                margin:       [0.5, 0.5, 0.5, 0.5], // Top, Left, Bottom, Right margins in inches
+                filename:     'AI_Trip_Itinerary.pdf',
+                image:        { type: 'jpeg', quality: 0.98 },
+                html2canvas:  { scale: 2, useCORS: true },
+                jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
+            };
+
+            // Using html2pdf to generate and download
+            html2pdf().set(opt).from(element).save();
         }
     </script>
 </body>
