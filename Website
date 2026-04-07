@@ -1,0 +1,407 @@
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Travel Planner</title>
+    <!-- Tailwind CSS for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        /* Custom styles for smoother animations */
+        .fade-in {
+            animation: fadeIn 0.5s ease-in-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .loader {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3b82f6;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans min-h-screen">
+
+    <!-- Header -->
+    <header class="bg-blue-600 text-white shadow-md sticky top-0 z-10">
+        <div class="max-w-5xl mx-auto px-4 py-4 flex items-center gap-3">
+            <i data-lucide="plane-takeoff" class="w-8 h-8"></i>
+            <h1 class="text-2xl font-bold tracking-wide">WanderGenius AI</h1>
+        </div>
+    </header>
+
+    <main class="max-w-5xl mx-auto px-4 py-8 flex flex-col md:flex-row gap-8">
+        
+        <!-- Input Form Section -->
+        <div class="w-full md:w-1/3 bg-white p-6 rounded-2xl shadow-sm border border-slate-100 h-fit">
+            <h2 class="text-xl font-bold mb-4 flex items-center gap-2">
+                <i data-lucide="map-pin" class="w-5 h-5 text-blue-500"></i> Trip Details
+            </h2>
+            
+            <form id="travelForm" class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Destination</label>
+                    <input type="text" id="destination" required placeholder="e.g., Tokyo, Japan" 
+                           class="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all">
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">Start Date</label>
+                        <input type="date" id="startDate" required 
+                               class="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">End Date</label>
+                        <input type="date" id="endDate" required 
+                               class="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">Travelers</label>
+                        <input type="number" id="numPeople" min="1" required placeholder="e.g., 2" 
+                               class="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">Ages</label>
+                        <input type="text" id="ages" required placeholder="e.g., 25, 28" 
+                               class="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">What do you like to do?</label>
+                    <textarea id="interests" required rows="3" placeholder="e.g., Hiking, visiting museums, trying local street food, nightlife" 
+                              class="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"></textarea>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Hotel Preferences</label>
+                    <textarea id="hotelPrefs" required rows="2" placeholder="e.g., Free breakfast, close to city center, highly rated, pool" 
+                              class="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"></textarea>
+                </div>
+
+                <!-- API Key Info Note -->
+                <div class="bg-blue-50 text-blue-800 p-3 rounded-lg text-xs">
+                    <p><strong>Note for GitHub Pages:</strong> To host this yourself, you must add your Gemini API key to the `apiKey` variable in the source code.</p>
+                </div>
+
+                <button type="submit" id="submitBtn" 
+                        class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 rounded-lg transition-colors flex justify-center items-center gap-2">
+                    <i data-lucide="sparkles" class="w-5 h-5"></i> Generate Itinerary
+                </button>
+            </form>
+        </div>
+
+        <!-- Output / Results Section -->
+        <div class="w-full md:w-2/3 bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-100 min-h-[500px] flex flex-col">
+            
+            <div id="initialState" class="flex-1 flex flex-col items-center justify-center text-slate-400 text-center space-y-4 fade-in">
+                <i data-lucide="map" class="w-16 h-16 opacity-50"></i>
+                <p class="text-lg">Fill out your details and let AI plan your perfect trip.</p>
+            </div>
+
+            <div id="loadingState" class="hidden flex-1 flex flex-col items-center justify-center text-slate-600 space-y-4">
+                <div class="loader"></div>
+                <p class="font-medium animate-pulse">Our AI travel agent is crafting your itinerary...</p>
+                <p class="text-sm text-slate-400">Finding the best hotels and planning activities.</p>
+            </div>
+
+            <div id="errorState" class="hidden flex-1 flex flex-col items-center justify-center text-red-500 space-y-4 fade-in">
+                <i data-lucide="alert-triangle" class="w-12 h-12"></i>
+                <p id="errorMessage" class="font-medium text-center">Something went wrong. Please try again.</p>
+            </div>
+
+            <div id="resultState" class="hidden fade-in space-y-8">
+                <!-- Results will be injected here via JS -->
+            </div>
+
+        </div>
+    </main>
+
+    <script>
+        // Initialize Lucide icons
+        lucide.createIcons();
+
+        // ----------------------------------------------------------------------
+        // CONFIGURATION
+        // ----------------------------------------------------------------------
+        // The API key is provided automatically in the current immersive canvas.
+        // If you download this file and host it on GitHub Pages, insert your 
+        // Google Gemini API Key between the quotes below.
+        const apiKey = "AIzaSyAmxGOIDj62fEg2F5G22tucYorIfv_8fLU"; 
+        // ----------------------------------------------------------------------
+
+        // DOM Elements
+        const form = document.getElementById('travelForm');
+        const submitBtn = document.getElementById('submitBtn');
+        const initialState = document.getElementById('initialState');
+        const loadingState = document.getElementById('loadingState');
+        const errorState = document.getElementById('errorState');
+        const errorMessage = document.getElementById('errorMessage');
+        const resultState = document.getElementById('resultState');
+
+        // Fetch with Exponential Backoff for stability
+        async function fetchWithRetry(url, options, retries = 5) {
+            const delays = [1000, 2000, 4000, 8000, 16000];
+            for (let i = 0; i < retries; i++) {
+                try {
+                    const response = await fetch(url, options);
+                    if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
+                    return await response.json();
+                } catch (error) {
+                    if (i === retries - 1) throw error;
+                    await new Promise(resolve => setTimeout(resolve, delays[i]));
+                }
+            }
+        }
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            // Collect form data
+            const formData = {
+                destination: document.getElementById('destination').value,
+                startDate: document.getElementById('startDate').value,
+                endDate: document.getElementById('endDate').value,
+                numPeople: document.getElementById('numPeople').value,
+                ages: document.getElementById('ages').value,
+                interests: document.getElementById('interests').value,
+                hotelPrefs: document.getElementById('hotelPrefs').value
+            };
+
+            // Calculate trip duration
+            const start = new Date(formData.startDate);
+            const end = new Date(formData.endDate);
+            const days = Math.round((end - start) / (1000 * 60 * 60 * 24)) + 1;
+
+            if (days <= 0) {
+                showError("End date must be after the start date.");
+                return;
+            }
+
+            // Update UI
+            showLoading();
+
+            // Construct Prompt
+            const prompt = `
+                Act as an expert travel planner. I am planning a trip to ${formData.destination} 
+                from ${formData.startDate} to ${formData.endDate} (${days} days) for ${formData.numPeople} people. 
+                The ages of the travelers are: ${formData.ages}. 
+                
+                Things we like to do: ${formData.interests}. 
+                Hotel preferences: ${formData.hotelPrefs}. 
+                
+                Please provide a highly detailed itinerary tailored to these specific preferences and ages.
+            `;
+
+            // Define Expected JSON Schema for the AI
+            const jsonSchema = {
+                type: "OBJECT",
+                properties: {
+                    tripTitle: { type: "STRING", description: "A catchy title for the trip" },
+                    hotelRecommendations: {
+                        type: "ARRAY",
+                        description: "List of 3 hotel recommendations matching the user's preferences",
+                        items: {
+                            type: "OBJECT",
+                            properties: {
+                                name: { type: "STRING" },
+                                whyItFits: { type: "STRING" }
+                            }
+                        }
+                    },
+                    itinerary: {
+                        type: "ARRAY",
+                        description: `Day-by-day itinerary. Must contain exactly ${days} days.`,
+                        items: {
+                            type: "OBJECT",
+                            properties: {
+                                dayNumber: { type: "NUMBER" },
+                                title: { type: "STRING", description: "Theme of the day" },
+                                morning: { type: "STRING" },
+                                afternoon: { type: "STRING" },
+                                evening: { type: "STRING" },
+                                foodSuggestions: { type: "STRING" }
+                            }
+                        }
+                    },
+                    travelTips: {
+                        type: "ARRAY",
+                        description: "3-4 specific travel tips for this location and group demographics",
+                        items: { type: "STRING" }
+                    }
+                },
+                required: ["tripTitle", "hotelRecommendations", "itinerary", "travelTips"]
+            };
+
+            // Prepare API Request
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+            
+            const payload = {
+                contents: [{ parts: [{ text: prompt }] }],
+                systemInstruction: { 
+                    parts: [{ text: "You are a world-class travel planner. Always return valid JSON matching the requested schema. Provide rich, realistic, and actionable advice." }] 
+                },
+                generationConfig: {
+                    responseMimeType: "application/json",
+                    responseSchema: jsonSchema
+                }
+            };
+
+            try {
+                const data = await fetchWithRetry(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                // Parse the response
+                const responseText = data.candidates[0].content.parts[0].text;
+                const resultJSON = JSON.parse(responseText);
+
+                // Render Results
+                renderResults(resultJSON);
+
+            } catch (err) {
+                console.error(err);
+                if (!apiKey) {
+                   showError("API Key is missing. Please add your Gemini API key to the script.");
+                } else {
+                   showError("Failed to generate itinerary. Please try again later.");
+                }
+            }
+        });
+
+        // --- UI Rendering Functions ---
+
+        function showLoading() {
+            submitBtn.disabled = true;
+            submitBtn.classList.add('opacity-70');
+            initialState.classList.add('hidden');
+            errorState.classList.add('hidden');
+            resultState.classList.add('hidden');
+            loadingState.classList.remove('hidden');
+            resultState.innerHTML = '';
+        }
+
+        function showError(msg) {
+            submitBtn.disabled = false;
+            submitBtn.classList.remove('opacity-70');
+            loadingState.classList.add('hidden');
+            errorMessage.textContent = msg;
+            errorState.classList.remove('hidden');
+        }
+
+        function renderResults(data) {
+            loadingState.classList.add('hidden');
+            submitBtn.disabled = false;
+            submitBtn.classList.remove('opacity-70');
+
+            // 1. Header
+            let html = `
+                <div class="border-b border-slate-200 pb-4">
+                    <h2 class="text-3xl font-extrabold text-slate-800">${data.tripTitle}</h2>
+                    <p class="text-slate-500 mt-2 flex items-center gap-2">
+                        <i data-lucide="check-circle" class="w-4 h-4 text-green-500"></i> AI Itinerary Successfully Generated
+                    </p>
+                </div>
+            `;
+
+            // 2. Hotel Recommendations
+            html += `
+                <div class="bg-blue-50 p-5 rounded-xl">
+                    <h3 class="text-lg font-bold text-blue-900 mb-3 flex items-center gap-2">
+                        <i data-lucide="bed" class="w-5 h-5"></i> Hotel Recommendations
+                    </h3>
+                    <div class="space-y-3">
+            `;
+            data.hotelRecommendations.forEach(hotel => {
+                html += `
+                    <div class="bg-white p-3 rounded-lg shadow-sm border border-blue-100">
+                        <p class="font-bold text-slate-800">${hotel.name}</p>
+                        <p class="text-sm text-slate-600 mt-1">${hotel.whyItFits}</p>
+                    </div>
+                `;
+            });
+            html += `</div></div>`;
+
+            // 3. Itinerary
+            html += `
+                <div>
+                    <h3 class="text-xl font-bold text-slate-800 mb-4 flex items-center gap-2">
+                        <i data-lucide="calendar-days" class="w-5 h-5"></i> Daily Itinerary
+                    </h3>
+                    <div class="space-y-6">
+            `;
+            
+            data.itinerary.forEach(day => {
+                html += `
+                    <div class="border-l-4 border-blue-500 pl-4 py-1 relative">
+                        <div class="absolute -left-2.5 top-2 w-4 h-4 rounded-full bg-blue-500 ring-4 ring-white"></div>
+                        <h4 class="text-lg font-bold text-slate-800">Day ${day.dayNumber}: ${day.title}</h4>
+                        
+                        <div class="mt-3 grid gap-3 text-sm text-slate-700">
+                            <div class="bg-slate-50 p-3 rounded-md">
+                                <span class="font-bold text-slate-900 block mb-1">Morning</span>
+                                ${day.morning}
+                            </div>
+                            <div class="bg-slate-50 p-3 rounded-md">
+                                <span class="font-bold text-slate-900 block mb-1">Afternoon</span>
+                                ${day.afternoon}
+                            </div>
+                            <div class="bg-slate-50 p-3 rounded-md">
+                                <span class="font-bold text-slate-900 block mb-1">Evening</span>
+                                ${day.evening}
+                            </div>
+                            <div class="bg-orange-50 p-3 rounded-md border border-orange-100">
+                                <span class="font-bold text-orange-800 flex items-center gap-1 mb-1">
+                                    <i data-lucide="utensils" class="w-4 h-4"></i> Dining Suggestion
+                                </span>
+                                ${day.foodSuggestions}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            html += `</div></div>`;
+
+            // 4. Travel Tips
+            html += `
+                <div class="bg-slate-100 p-5 rounded-xl">
+                    <h3 class="text-lg font-bold text-slate-800 mb-3 flex items-center gap-2">
+                        <i data-lucide="info" class="w-5 h-5"></i> Quick Tips
+                    </h3>
+                    <ul class="list-disc list-inside text-sm text-slate-700 space-y-2">
+            `;
+            data.travelTips.forEach(tip => {
+                html += `<li>${tip}</li>`;
+            });
+            html += `</ul></div>`;
+
+            // Set HTML and show result
+            resultState.innerHTML = html;
+            lucide.createIcons(); // Re-initialize icons for newly injected HTML
+            resultState.classList.remove('hidden');
+        }
+    </script>
+</body>
+</html>
+
+```
