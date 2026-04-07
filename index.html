@@ -5,9 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AI Travel Planner</title>
-    <!-- Tailwind CSS for styling -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
     <style>
         .fade-in { animation: fadeIn 0.5s ease-in-out; }
@@ -112,9 +110,9 @@
 
             <div id="errorState" class="hidden flex-1 flex flex-col items-center justify-center text-red-500 space-y-4 fade-in">
                 <i data-lucide="alert-triangle" class="w-12 h-12"></i>
-                <h3 class="font-bold text-xl">Error Generating Itinerary</h3>
-                <p id="errorMessage" class="font-medium text-center text-slate-700 max-w-md bg-red-50 p-4 rounded-lg border border-red-200"></p>
-                <p class="text-sm text-slate-500 text-center max-w-md">Make sure you have added your API Key to the code. If you are on GitHub pages, check the browser console for details.</p>
+                <h3 class="font-bold text-xl text-red-700">Error Generating Itinerary</h3>
+                <p id="errorMessage" class="font-medium text-center text-red-800 text-sm max-w-md bg-red-50 p-4 rounded-lg border border-red-200 break-words"></p>
+                <p class="text-sm text-slate-500 text-center max-w-md">Double-check your API key inside the index.html file on GitHub.</p>
             </div>
 
             <div id="resultState" class="hidden fade-in space-y-8">
@@ -141,30 +139,12 @@
         const errorMessage = document.getElementById('errorMessage');
         const resultState = document.getElementById('resultState');
 
-        async function fetchWithRetry(url, options, retries = 3) {
-            for (let i = 0; i < retries; i++) {
-                try {
-                    const response = await fetch(url, options);
-                    const data = await response.json();
-                    
-                    if (!response.ok) {
-                        // Throw the specific error message from Google so we can read it
-                        throw new Error(data.error?.message || `HTTP Error: ${response.status}`);
-                    }
-                    return data;
-                } catch (error) {
-                    if (i === retries - 1) throw error;
-                    await new Promise(resolve => setTimeout(resolve, 2000));
-                }
-            }
-        }
-
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
 
-            // Check API Key immediately
+            // 1. Check API Key immediately
             if (!apiKey || apiKey.trim() === "") {
-                showError("API Key is missing! You must paste your Google Gemini API key into line 133 of the index.html file.");
+                showError("Missing API Key! You need to edit index.html on GitHub and put your key inside the quotes on line 125.");
                 return;
             }
 
@@ -183,7 +163,7 @@
             const days = Math.round((end - start) / (1000 * 60 * 60 * 24)) + 1;
 
             if (days <= 0 || days > 14) {
-                showError("Please enter a valid date range (between 1 and 14 days).");
+                showError("Please enter a valid date range (between 1 and 14 days max for the AI).");
                 return;
             }
 
@@ -227,8 +207,8 @@
                 required: ["tripTitle", "hotelRecommendations", "itinerary", "travelTips"]
             };
 
-            // Using the standard public gemini flash model for better GitHub Pages compatibility
-            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+            // Using the universally available gemini-1.5-flash model
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
             
             const payload = {
                 contents: [{ parts: [{ text: prompt }] }],
@@ -242,11 +222,18 @@
             };
 
             try {
-                const data = await fetchWithRetry(url, {
+                const response = await fetch(url, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
                 });
+
+                const data = await response.json();
+
+                // Check for Google API Errors explicitly
+                if (!response.ok) {
+                    throw new Error(`Google API Error: ${data.error?.message || response.statusText}`);
+                }
 
                 if (!data.candidates || !data.candidates[0].content) {
                     throw new Error("Received an empty response from the AI. Please try again.");
