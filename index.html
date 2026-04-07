@@ -43,6 +43,17 @@
             </h2>
             
             <form id="travelForm" class="space-y-4">
+                
+                <!-- AI Model Selector added here -->
+                <div class="bg-slate-50 p-3 rounded-lg border border-slate-200 mb-4">
+                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Select AI Model</label>
+                    <select id="aiModel" class="w-full p-2 bg-white border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+                        <option value="gemini-2.5-flash-preview-09-2025">Gemini 2.5 Flash Preview (Recommended)</option>
+                        <option value="gemini-1.5-flash-latest">Gemini 1.5 Flash Latest</option>
+                        <option value="gemini-1.5-pro-latest">Gemini 1.5 Pro</option>
+                    </select>
+                </div>
+
                 <div>
                     <label class="block text-sm font-medium text-slate-700 mb-1">Destination</label>
                     <input type="text" id="destination" required placeholder="e.g., Tokyo, Japan" 
@@ -112,7 +123,7 @@
                 <i data-lucide="alert-triangle" class="w-12 h-12"></i>
                 <h3 class="font-bold text-xl text-red-700">Error Generating Itinerary</h3>
                 <p id="errorMessage" class="font-medium text-center text-red-800 text-sm max-w-md bg-red-50 p-4 rounded-lg border border-red-200 break-words"></p>
-                <p class="text-sm text-slate-500 text-center max-w-md">Double-check your API key inside the index.html file on GitHub.</p>
+                <p class="text-sm text-slate-500 text-center max-w-md">If the model isn't supported, <b>try selecting a different model from the dropdown on the left!</b></p>
             </div>
 
             <div id="resultState" class="hidden fade-in space-y-8">
@@ -139,16 +150,36 @@
         const errorMessage = document.getElementById('errorMessage');
         const resultState = document.getElementById('resultState');
 
+        // Exponential backoff retry logic for stability
+        async function fetchWithRetry(url, options, retries = 5) {
+            const delays = [1000, 2000, 4000, 8000, 16000];
+            for (let i = 0; i < retries; i++) {
+                try {
+                    const response = await fetch(url, options);
+                    const data = await response.json();
+                    
+                    if (!response.ok) {
+                        throw new Error(data.error?.message || `HTTP Error: ${response.status}`);
+                    }
+                    return data;
+                } catch (error) {
+                    if (i === retries - 1) throw error;
+                    await new Promise(resolve => setTimeout(resolve, delays[i]));
+                }
+            }
+        }
+
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
 
             // 1. Check API Key immediately
             if (!apiKey || apiKey.trim() === "") {
-                showError("Missing API Key! You need to edit index.html on GitHub and put your key inside the quotes on line 125.");
+                showError("Missing API Key! You need to edit index.html on GitHub and put your key inside the quotes on line 144.");
                 return;
             }
 
             const formData = {
+                selectedModel: document.getElementById('aiModel').value,
                 destination: document.getElementById('destination').value,
                 startDate: document.getElementById('startDate').value,
                 endDate: document.getElementById('endDate').value,
@@ -207,8 +238,8 @@
                 required: ["tripTitle", "hotelRecommendations", "itinerary", "travelTips"]
             };
 
-            // Using the universally available gemini-1.5-flash model
-            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+            // Dynamically inject the model chosen from the dropdown menu!
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/${formData.selectedModel}:generateContent?key=${apiKey}`;
             
             const payload = {
                 contents: [{ parts: [{ text: prompt }] }],
@@ -222,18 +253,11 @@
             };
 
             try {
-                const response = await fetch(url, {
+                const data = await fetchWithRetry(url, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
                 });
-
-                const data = await response.json();
-
-                // Check for Google API Errors explicitly
-                if (!response.ok) {
-                    throw new Error(`Google API Error: ${data.error?.message || response.statusText}`);
-                }
 
                 if (!data.candidates || !data.candidates[0].content) {
                     throw new Error("Received an empty response from the AI. Please try again.");
@@ -245,7 +269,7 @@
 
             } catch (err) {
                 console.error("Full Error:", err);
-                showError(err.message || "An unknown error occurred while communicating with the AI.");
+                showError(`Google API Error: ${err.message}. Try selecting a different model from the dropdown!`);
             }
         });
 
